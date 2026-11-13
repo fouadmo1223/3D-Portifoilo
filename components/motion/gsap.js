@@ -1,0 +1,16 @@
+'use client'
+
+import gsap from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { useGSAP } from '@gsap/react'
+
+// Register once; every component imports gsap from here.
+if (typeof window !== 'undefined') {
+  gsap.registerPlugin(ScrollTrigger, useGSAP)
+  gsap.defaults({ ease: 'expo.out', duration: 1.1 })
+}
+
+export const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+export { gsap, ScrollTrigger, useGSAP }

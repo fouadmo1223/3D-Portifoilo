@@ -1,0 +1,176 @@
+@import "tailwindcss";
+
+/* ── Code Universe tokens (IDE-dark + syntax colours) ───────────────────── */
+:root {
+  --ink: #05070c;
+  --coal: #0b0f17;
+  --ash: #111722;
+  --smoke: #1a2230;
+  --line: rgb(139 155 180 / 0.14);
+  --line-strong: rgb(139 155 180 / 0.28);
+  --bone: #e6edf3;
+  --mute: #8b949e;
+  --faint: #4f5966;
+  --accent: #4af2a1;
+  --accent-soft: rgb(74 242 161 / 0.12);
+  --syn-blue: #79c0ff;
+  --syn-purple: #d2a8ff;
+  --syn-orange: #ffa657;
+  --syn-red: #ff7b72;
+  --syn-string: #a5d6ff;
+  --danger: #ff7b72;
+  --ok: #7ee787;
+
+  --display: var(--font-geist), var(--font-plex-ar), ui-sans-serif, system-ui, sans-serif;
+  --sans: var(--font-geist), var(--font-plex-ar), ui-sans-serif, system-ui, sans-serif;
+  --mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.76, 0, 0.24, 1);
+  --gutter: clamp(1rem, 4vw, 3.5rem);
+  color-scheme: dark;
+}
+
+html[lang="ar"] {
+  --display: var(--font-plex-ar), var(--font-geist), sans-serif;
+  --sans: var(--font-plex-ar), var(--font-geist), sans-serif;
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-coal: var(--coal);
+  --color-ash: var(--ash);
+  --color-smoke: var(--smoke);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-bone: var(--bone);
+  --color-mute: var(--mute);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-syn-blue: var(--syn-blue);
+  --color-syn-purple: var(--syn-purple);
+  --color-syn-orange: var(--syn-orange);
+  --color-syn-red: var(--syn-red);
+  --color-syn-string: var(--syn-string);
+  --color-danger: var(--danger);
+  --color-ok: var(--ok);
+  --font-display: var(--display);
+  --font-sans: var(--sans);
+  --font-mono: var(--mono);
+  --ease-out-expo: var(--ease-out);
+  --ease-in-out-quart: var(--ease-in-out);
+  --breakpoint-xs: 30rem;
+}
+
+/* ── Base (layered so Tailwind utilities always win) ────────────────────── */
+@layer base {
+html {
+  background: var(--ink);
+  color: var(--bone);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+body {
+  background: var(--ink);
+  font-family: var(--sans);
+  font-size: 1rem;
+  line-height: 1.6;
+  overflow-x: clip;
+}
+::selection { background: var(--accent); color: var(--ink); }
+
+:focus-visible { outline: 1px solid var(--accent); outline-offset: 4px; }
+
+a { color: inherit; text-decoration: none; }
+
+/* Lenis */
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-stopped { overflow: clip; }
+
+/* Custom cursor hides the native one only where it is active */
+html.has-cursor, html.has-cursor a, html.has-cursor button { cursor: none; }
+html.has-cursor input, html.has-cursor textarea, html.has-cursor select { cursor: text; }
+}
+
+/* ── Type scale & helpers (components layer: utilities can override) ────── */
+@layer components {
+.t-hero { font-family: var(--display); font-weight: 650; font-size: clamp(3.4rem, 12.5vw, 13.5rem); line-height: 0.86; letter-spacing: -0.055em; }
+.t-display { font-family: var(--display); font-weight: 600; font-size: clamp(2.4rem, 6.4vw, 6.6rem); line-height: 0.96; letter-spacing: -0.045em; }
+.t-title { font-family: var(--display); font-weight: 550; font-size: clamp(1.7rem, 3.2vw, 3rem); line-height: 1.04; letter-spacing: -0.035em; }
+.t-lead { font-family: var(--display); font-weight: 400; font-size: clamp(1.45rem, 2.8vw, 2.7rem); line-height: 1.18; letter-spacing: -0.03em; }
+.t-label { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; }
+.t-mono { font-family: var(--mono); font-size: 0.8rem; letter-spacing: 0.02em; }
+html[lang="ar"] .t-hero { letter-spacing: 0; line-height: 1.12; }
+html[lang="ar"] .t-display, html[lang="ar"] .t-title, html[lang="ar"] .t-lead { letter-spacing: 0; line-height: 1.3; }
+html[lang="ar"] .t-label { letter-spacing: 0.02em; text-transform: none; font-family: var(--sans); font-size: 0.82rem; }
+
+/* ── Layout helpers ─────────────────────────────────────────────────────── */
+.wrap { width: 100%; max-width: 1600px; margin-inline: auto; padding-inline: var(--gutter); }
+.rule { border-color: var(--line); }
+
+/* Mask wrapper for line/word reveals */
+.mask { display: inline-block; overflow: clip; vertical-align: top; padding-bottom: 0.08em; margin-bottom: -0.08em; }
+.mask > span { display: inline-block; will-change: transform; }
+
+/* Text link with growing underline */
+.link-line { background: linear-gradient(currentColor, currentColor) no-repeat 0 100% / 0 1px; transition: background-size 0.6s var(--ease-out); }
+.link-line:hover, .link-line:focus-visible { background-size: 100% 1px; }
+html[dir="rtl"] .link-line { background-position: 100% 100%; }
+}
+
+/* Lists that drive the 3D scene: the hovered row stays bright, the rest step back */
+@media (hover: hover) {
+  .hover-focus-item, .hover-focus-kids > * { transition: opacity 0.5s var(--ease-out); }
+  .hover-focus:hover .hover-focus-item:not(:hover) { opacity: 0.4; }
+  /* for rows whose own opacity is animated on reveal */
+  .hover-focus:hover .hover-focus-kids:not(:hover) > * { opacity: 0.4; }
+}
+
+/* Film grain overlay — static, cheap, adds texture over flat dark areas */
+.grain::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 60; opacity: 0.05;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.9'/></svg>");
+}
+
+/* Static backdrop when WebGL is unavailable */
+.backdrop-fallback {
+  background:
+    radial-gradient(60% 50% at 70% 40%, rgb(74 242 161 / 0.10), transparent 70%), radial-gradient(50% 40% at 85% 70%, rgb(121 192 255 / 0.10), transparent 70%),
+    radial-gradient(80% 60% at 20% 100%, rgb(210 168 255 / 0.05), transparent 70%),
+    var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
+}
+
+@keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes scroll-line { 0% { transform: scaleY(0); transform-origin: top; } 45% { transform: scaleY(1); transform-origin: top; } 55% { transform: scaleY(1); transform-origin: bottom; } 100% { transform: scaleY(0); transform-origin: bottom; } }
+.animate-pulse-dot { animation: pulse-dot 2.4s ease-in-out infinite; }
+.animate-scroll-line { animation: scroll-line 2.2s var(--ease-in-out) infinite; }
+
+/* Admin uses the same palette with denser, practical spacing */
+.admin-input {
+  width: 100%; background: var(--coal); border: 1px solid var(--line); color: var(--bone);
+  padding: 0.6rem 0.75rem; font-size: 0.9rem; border-radius: 2px; transition: border-color 0.2s;
+}
+.admin-input:focus { border-color: var(--accent); outline: none; }
+.admin-input[aria-invalid="true"] { border-color: var(--danger); }
+textarea.admin-input { resize: vertical; min-height: 6rem; line-height: 1.55; }
+select.admin-input { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--mute) 50%), linear-gradient(135deg, var(--mute) 50%, transparent 50%); background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-inline-end: 2rem; }
+.admin-btn {
+  display: inline-flex; align-items: center; gap: 0.45rem; border: 1px solid var(--line-strong); color: var(--bone);
+  padding: 0.45rem 0.8rem; font-size: 0.8rem; font-weight: 500; border-radius: 2px; white-space: nowrap; cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background-color 0.2s;
+}
+.admin-btn:hover:not(:disabled) { border-color: var(--bone); }
+.admin-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.admin-btn-primary { background: var(--accent); border-color: var(--accent); color: var(--ink); }
+.admin-btn-primary:hover:not(:disabled) { background: var(--bone); border-color: var(--bone); }
+.admin-icon { display: inline-grid; place-items: center; padding: 0.4rem; color: var(--mute); border-radius: 2px; cursor: pointer; transition: color 0.2s, background-color 0.2s; }
+.admin-icon:hover:not(:disabled) { color: var(--bone); background: var(--ash); }
+.admin-icon:disabled { opacity: 0.25; cursor: not-allowed; }
+.admin-btn:focus-visible, .admin-icon:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
