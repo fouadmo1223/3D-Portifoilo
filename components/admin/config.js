@@ -12,6 +12,7 @@ export const RESOURCES = {
     title: (x) => x.title?.en,
     subtitle: (x) => [x.category, x.year, x.technologies?.slice(0, 3).join(', ')].filter(Boolean).join(' · '),
     image: (x) => x.thumbnail,
+    layout: 'grid',
     toggles: ['published', 'featured'],
     groups: [
       { title: 'Basics', fields: [
@@ -26,7 +27,7 @@ export const RESOURCES = {
         { name: 'gallery', type: 'gallery', label: 'Gallery' },
       ] },
       { title: 'Details', fields: [
-        { name: 'filters', type: 'checks', label: 'Stack filters', options: PROJECT_FILTERS, hint: 'Which filter groups list this project on the site.' },
+        { name: 'filters', type: 'checks', label: 'Stack filters', options: PROJECT_FILTERS, allowAdd: true, hint: 'Which filter groups list this project on the site. Add your own if the stack is not listed.' },
         { name: 'technologies', type: 'tags', label: 'Technologies' },
         { name: 'category', type: 'text', label: 'Category', half: true },
         { name: 'year', type: 'number', label: 'Year', half: true, min: 2015, max: 2100 },

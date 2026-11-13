@@ -155,22 +155,99 @@ html[dir="rtl"] .link-line { background-position: 100% 100%; }
 /* Admin uses the same palette with denser, practical spacing */
 .admin-input {
   width: 100%; background: var(--coal); border: 1px solid var(--line); color: var(--bone);
-  padding: 0.6rem 0.75rem; font-size: 0.9rem; border-radius: 2px; transition: border-color 0.2s;
+  padding: 0.6rem 0.75rem; font-size: 0.9rem; border-radius: 8px; transition: border-color 0.2s, box-shadow 0.2s;
 }
-.admin-input:focus { border-color: var(--accent); outline: none; }
+.admin-input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); }
 .admin-input[aria-invalid="true"] { border-color: var(--danger); }
 textarea.admin-input { resize: vertical; min-height: 6rem; line-height: 1.55; }
 select.admin-input { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--mute) 50%), linear-gradient(135deg, var(--mute) 50%, transparent 50%); background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-inline-end: 2rem; }
 .admin-btn {
   display: inline-flex; align-items: center; gap: 0.45rem; border: 1px solid var(--line-strong); color: var(--bone);
-  padding: 0.45rem 0.8rem; font-size: 0.8rem; font-weight: 500; border-radius: 2px; white-space: nowrap; cursor: pointer;
+  padding: 0.45rem 0.8rem; font-size: 0.8rem; font-weight: 500; border-radius: 8px; white-space: nowrap; cursor: pointer;
   transition: border-color 0.2s, color 0.2s, background-color 0.2s;
 }
 .admin-btn:hover:not(:disabled) { border-color: var(--bone); }
 .admin-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .admin-btn-primary { background: var(--accent); border-color: var(--accent); color: var(--ink); }
 .admin-btn-primary:hover:not(:disabled) { background: var(--bone); border-color: var(--bone); }
-.admin-icon { display: inline-grid; place-items: center; padding: 0.4rem; color: var(--mute); border-radius: 2px; cursor: pointer; transition: color 0.2s, background-color 0.2s; }
+.admin-icon { display: inline-grid; place-items: center; padding: 0.4rem; color: var(--mute); border-radius: 6px; cursor: pointer; transition: color 0.2s, background-color 0.2s; }
 .admin-icon:hover:not(:disabled) { color: var(--bone); background: var(--ash); }
 .admin-icon:disabled { opacity: 0.25; cursor: not-allowed; }
 .admin-btn:focus-visible, .admin-icon:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.admin-btn:active:not(:disabled) { transform: translateY(1px); }
+
+/* Admin motion. Fill mode is "backwards" so nothing keeps a transform once it has landed
+   (a lingering transform would trap the fixed save bar inside its parent). */
+@keyframes admin-rise { from { opacity: 0; transform: translateY(12px); } }
+@keyframes admin-fade { from { opacity: 0; } }
+@keyframes admin-swap { from { opacity: 0; transform: translateY(4px); } }
+@keyframes admin-shimmer { to { transform: translateX(100%); } }
+@keyframes admin-progress { from { transform: scaleX(0); } to { transform: scaleX(0.85); } }
+.admin-rise { animation: admin-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards; animation-delay: calc(var(--i, 0) * 45ms); }
+.admin-page { animation: admin-fade 0.3s ease-out backwards; }
+.admin-swap { animation: admin-swap 0.25s ease-out backwards; }
+.admin-dim > * { opacity: 0.6; }
+.admin-skeleton { position: relative; overflow: hidden; background: var(--ash); border-radius: 5px; }
+
+/* Cards: a soft top-lit surface that lifts and picks up the accent on hover. */
+.admin-card {
+  border: 1px solid var(--line); border-radius: 14px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--coal) 92%, transparent), color-mix(in srgb, var(--coal) 40%, transparent));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 1px 2px rgb(0 0 0 / 0.3);
+  transition: border-color 0.25s, transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s;
+}
+.admin-card-hover:hover, .admin-card-hover:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); transform: translateY(-3px);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 18px 36px -20px rgb(0 0 0 / 0.9), 0 0 28px -14px var(--accent);
+}
+.admin-card-glow::before {
+  content: ''; position: absolute; inset-inline-end: -30%; top: -60%; width: 80%; aspect-ratio: 1; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 22%, transparent), transparent); opacity: 0.35; transition: opacity 0.4s;
+}
+.admin-card-glow:hover::before { opacity: 1; }
+.admin-chip {
+  display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.5rem; border-radius: 999px; border: 1px solid rgb(255 255 255 / 0.12);
+  background: rgb(5 7 12 / 0.72); backdrop-filter: blur(6px); color: var(--bone);
+  font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.admin-skeleton::after {
+  content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.07), transparent);
+  animation: admin-shimmer 1.5s ease-in-out infinite;
+}
+.admin-progress {
+  position: fixed; inset-inline: 0; top: 0; z-index: 60; height: 2px; pointer-events: none;
+  background: var(--accent); box-shadow: 0 0 10px var(--accent); transform-origin: left; transform: scaleX(0); opacity: 0;
+}
+.admin-progress-going { opacity: 1; animation: admin-progress 6s cubic-bezier(0.1, 0.7, 0.1, 1) forwards; }
+.admin-progress-done { transform: scaleX(1); opacity: 0; transition: transform 0.2s ease-out, opacity 0.3s ease-out 0.15s; }
+@media (prefers-reduced-motion: reduce) {
+  .admin-rise { animation-delay: 0s; }
+  .admin-skeleton::after, .admin-progress { animation: none; }
+}
+
+/* Entrance splash: a CSS-3D cube at the mouth of a tunnel the camera flies down. */
+.loader { --load: 0; background: radial-gradient(60% 50% at 50% 50%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 70%), var(--ink); }
+.loader-stage { position: absolute; inset: 0; display: grid; place-items: center; perspective: 900px; }
+.loader-3d { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-style: preserve-3d; }
+.loader-frame {
+  position: absolute; left: 0; top: 0; width: min(92vmin, 820px); aspect-ratio: 16 / 10; border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  box-shadow: 0 0 34px -6px color-mix(in srgb, var(--accent) 45%, transparent), inset 0 0 34px -10px color-mix(in srgb, var(--accent) 35%, transparent);
+  will-change: transform;
+}
+.loader-frame:nth-child(3n) { border-color: rgb(121 192 255 / 0.55); box-shadow: 0 0 34px -6px rgb(121 192 255 / 0.4), inset 0 0 34px -10px rgb(121 192 255 / 0.3); }
+.loader-cube { position: absolute; left: -60px; top: -60px; width: 120px; height: 120px; transform-style: preserve-3d; will-change: transform; }
+.loader-face {
+  position: absolute; inset: 0; display: grid; place-items: center; border-radius: 10px;
+  border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent);
+  box-shadow: inset 0 0 26px color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--accent); font-family: var(--mono); font-size: 1.5rem; font-weight: 600; text-shadow: 0 0 14px var(--accent);
+}
+.loader-core { position: absolute; inset: 34px; border-radius: 50%; background: var(--accent); filter: blur(14px); opacity: 0.75; animation: pulse-dot 1.6s ease-in-out infinite; }
+.loader-bar { height: 1px; background: var(--line); position: relative; }
+.loader-bar::after { content: ''; position: absolute; inset: 0; background: var(--accent); box-shadow: 0 0 10px var(--accent); transform: scaleX(var(--load)); transform-origin: left; }
+[dir="rtl"] .loader-bar::after { transform-origin: right; }
+
+/* Dragging the 3D world in the hero */
+body.room-dragging, body.room-dragging * { cursor: grabbing !important; user-select: none !important; }

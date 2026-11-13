@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Check, Loader2, Trash2 } from 'lucide-react'
-import { Field } from './fields'
+import { Field, LangContext, LangSwitch } from './fields'
 
+const hasLoc = (fields) => fields.some((f) => f.type === 'loc' || f.type === 'locList' || (f.fields && hasLoc(f.fields)))
 const strip = ({ _id, __v, createdAt, updatedAt, ...rest }) => rest
 
 // One form for every document type. `groups` (from config.js) decides the fields;
@@ -15,6 +16,9 @@ export function DocForm({ groups, initial, save, remove, backHref, heading, save
   const [status, setStatus] = useState('idle') // idle | saving | saved
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
+  const [lang, setLang] = useState('en')
+  const language = useMemo(() => ({ lang, setLang }), [lang])
+  const bilingual = useMemo(() => groups.some((g) => hasLoc(g.fields)), [groups])
   const dirty = useMemo(() => JSON.stringify(doc) !== JSON.stringify(saved), [doc, saved])
 
   // Warn before closing the tab with unsaved edits.
@@ -39,25 +43,34 @@ export function DocForm({ groups, initial, save, remove, backHref, heading, save
       setStatus('idle')
       setError(err.message)
       setFieldErrors(err.fields ?? {})
+      // If every problem is in the language that is hidden, show that language.
+      const keys = Object.keys(err.fields ?? {})
+      const inLang = (code) => keys.some((k) => new RegExp(`(^|\\.)${code}(\\.|$)`).test(k))
+      const other = lang === 'en' ? 'ar' : 'en'
+      if (inLang(other) && !inLang(lang)) setLang(other)
       // Bring the first problem into view.
       requestAnimationFrame(() => document.querySelector('[aria-invalid="true"], [role="alert"]')?.scrollIntoView({ block: 'center', behavior: 'smooth' }))
     }
   }
 
   return (
-    <form onSubmit={submit} noValidate className="pb-24">
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+    <LangContext.Provider value={language}>
+    <form onSubmit={submit} noValidate className="mx-auto max-w-4xl pb-24">
+      <div className="admin-rise mb-8 flex flex-wrap items-center justify-between gap-4">
         <div>
           {backHref && <Link href={backHref} className="mb-2 inline-flex items-center gap-1.5 text-xs text-mute hover:text-bone"><ArrowLeft size={13} />Back to list</Link>}
           <h1 className="text-2xl font-semibold tracking-tight">{heading}</h1>
         </div>
-        {remove && <button type="button" onClick={remove} className="admin-btn hover:!border-danger hover:!text-danger"><Trash2 size={14} />Delete</button>}
+        <div className="flex flex-wrap items-center gap-3">
+          {bilingual && <LangSwitch />}
+          {remove && <button type="button" onClick={remove} className="admin-btn hover:!border-danger hover:!text-danger"><Trash2 size={14} />Delete</button>}
+        </div>
       </div>
 
       <div className="space-y-6">
-        {groups.map((group) => (
-          <section key={group.title} className="border border-line bg-coal/30">
-            <h2 className="border-b border-line px-5 py-3 font-mono text-[0.7rem] uppercase tracking-widest text-mute">{group.title}</h2>
+        {groups.map((group, i) => (
+          <section key={group.title} style={{ '--i': i + 1 }} className="admin-rise admin-card overflow-hidden">
+            <h2 className="flex items-center gap-2.5 border-b border-line bg-coal/50 px-5 py-3.5 font-mono text-[0.7rem] uppercase tracking-widest text-mute"><span className="size-1.5 rounded-full bg-accent" aria-hidden="true" />{group.title}<span className="ms-auto text-faint">{String(i + 1).padStart(2, '0')}</span></h2>
             <div className="grid gap-5 p-5 md:grid-cols-2">
               {group.fields.map((f) => (
                 <div key={f.name} className={f.half ? '' : 'md:col-span-2'}>
@@ -69,7 +82,7 @@ export function DocForm({ groups, initial, save, remove, backHref, heading, save
         ))}
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-ink/95 lg:start-60">
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-ink/90 backdrop-blur-md lg:start-60">
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-5 py-3 lg:px-10">
           <p className="min-w-0 truncate text-sm" role="status">
             {error ? <span className="text-danger">{error}</span>
@@ -77,12 +90,16 @@ export function DocForm({ groups, initial, save, remove, backHref, heading, save
                 : dirty ? <span className="text-mute">Unsaved changes</span>
                   : <span className="text-faint">No changes</span>}
           </p>
-          <button type="submit" disabled={status === 'saving' || !dirty} className="admin-btn admin-btn-primary">
-            {status === 'saving' && <Loader2 size={14} className="animate-spin" />}
-            {status === 'saving' ? 'Saving…' : saveLabel}
-          </button>
+          <div className="flex shrink-0 items-center gap-3">
+            {bilingual && <LangSwitch className="max-sm:hidden" />}
+            <button type="submit" disabled={status === 'saving' || !dirty} className="admin-btn admin-btn-primary">
+              {status === 'saving' && <Loader2 size={14} className="animate-spin" />}
+              {status === 'saving' ? 'Saving…' : saveLabel}
+            </button>
+          </div>
         </div>
       </div>
     </form>
+    </LangContext.Provider>
   )
 }

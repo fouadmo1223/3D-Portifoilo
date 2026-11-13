@@ -16,6 +16,10 @@ const STACKS = [
   ['nest', 'NestJS'], ['zid', 'Zid'], ['astro', 'Astro'], ['reactnative', 'React Native'],
 ]
 
+const KNOWN = new Set(STACKS.map(([key]) => key))
+// Label for a filter added in the admin: "vue-js" -> "Vue Js".
+const labelFor = (key) => key.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+
 function FilterRow({ filter, active, onSelect, layoutId }) {
   return (
     <button
@@ -42,7 +46,7 @@ export function Archive({ projects }) {
   const [drawer, setDrawer] = useState(false)
 
   const filters = useMemo(() => [
-    ...STACKS.map(([key, label]) => ({ key, label, count: projects.filter((p) => p.filters.includes(key)).length })).filter((f) => f.count > 0),
+    ...[...STACKS, ...[...new Set(projects.flatMap((p) => p.filters))].filter((k) => !KNOWN.has(k)).sort().map((k) => [k, labelFor(k)])].map(([key, label]) => ({ key, label, count: projects.filter((p) => p.filters.includes(key)).length })).filter((f) => f.count > 0),
     { key: 'all', label: t.work.all, count: projects.length },
   ], [projects, t.work.all])
   const [filter, setFilter] = useState(() => filters[0].key)

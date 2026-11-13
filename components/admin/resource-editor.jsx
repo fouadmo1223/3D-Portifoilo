@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
 import { api } from './api'
 import { RESOURCES, PROFILE_GROUPS, blankFrom } from './config'
 import { DocForm } from './doc-form'
+import { FormSkeleton } from './skeleton'
 
-const Loading = () => <p className="flex items-center gap-2 py-16 text-sm text-mute"><Loader2 size={15} className="animate-spin" />Loading…</p>
-const Failed = ({ children }) => <p role="alert" className="border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">{children}</p>
+const Loading = () => <FormSkeleton />
+const Failed = ({ children }) => <p role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">{children}</p>
 
 // Create (id === 'new') or edit one project, role or skill.
 export function ResourceEditor({ resource, id }) {

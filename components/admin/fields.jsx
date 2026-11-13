@@ -1,8 +1,10 @@
 'use client'
 
-import { useId, useRef, useState } from 'react'
-import { ArrowDown, ArrowUp, ImagePlus, Loader2, Plus, Trash2, X } from 'lucide-react'
+import { createContext, useContext, useEffect, useId, useRef, useState } from 'react'
+import { motion } from 'motion/react'
+import { ArrowDown, ArrowUp, ImagePlus, Languages, Loader2, Plus, Trash2, X } from 'lucide-react'
 import { api } from './api'
+import { filterKey } from '@/lib/validators'
 
 const errorFor = (errors, path) => errors?.[path] ?? Object.entries(errors ?? {}).find(([k]) => k.startsWith(`${path}.`))?.[1]
 
@@ -23,31 +25,69 @@ function Input({ id, value, onChange, area, rows = 3, invalid, mono, ...rest }) 
     : <input id={id} value={value ?? ''} onChange={(e) => onChange(e.target.value)} aria-invalid={invalid || undefined} className={cls} {...rest} />
 }
 
-// English and Arabic side by side.
+// Which language the bilingual fields are showing. Provided by the form.
+export const LangContext = createContext({ lang: 'en', setLang: () => {} })
+const LANGS = [['en', 'English'], ['ar', 'عربي']]
+const NAME = { en: 'English', ar: 'Arabic' }
+const filled = (x) => (Array.isArray(x) ? x.length > 0 : Boolean(x && String(x).trim()))
+
+// The English / Arabic pill. Every bilingual field in the form follows it.
+export function LangSwitch({ className = '' }) {
+  const { lang, setLang } = useContext(LangContext)
+  const id = useId()
+  return (
+    <div role="radiogroup" aria-label="Language being edited" className={`inline-flex shrink-0 items-center rounded-full border border-line-strong bg-coal p-1 ${className}`}>
+      {LANGS.map(([code, label]) => {
+        const on = lang === code
+        return (
+          <button key={code} type="button" role="radio" aria-checked={on} lang={code} onClick={() => setLang(code)} className={`relative rounded-full px-3.5 py-1 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${on ? 'text-ink' : 'text-mute hover:text-bone'}`}>
+            {on && <motion.span layoutId={`lang-${id}`} className="absolute inset-0 rounded-full bg-accent" transition={{ type: 'spring', stiffness: 520, damping: 40 }} />}
+            <span className="relative">{label}</span>
+          </button>
+        )
+      })}
+      <Languages size={14} className="mx-2 text-mute" aria-hidden="true" />
+    </div>
+  )
+}
+
+// Legend for a bilingual field: its label, the language on show, and a nudge when the other one is empty.
+function LocLegend({ field, other, otherEmpty }) {
+  const { lang, setLang } = useContext(LangContext)
+  return (
+    <legend className="mb-1.5 flex w-full items-center gap-2 text-[0.8rem] font-medium text-bone/90">
+      <span>{field.label}{field.required && <span className="ms-1 text-accent" aria-hidden="true">*</span>}</span>
+      <span className="font-mono text-[0.6rem] uppercase tracking-widest text-faint">{lang}</span>
+      {otherEmpty && <button type="button" onClick={() => setLang(other)} className="ms-auto font-mono text-[0.6rem] uppercase tracking-widest text-syn-orange hover:underline">{NAME[other]} empty</button>}
+    </legend>
+  )
+}
+
+// English and Arabic share one input; the switch picks which is shown.
 function LocField({ field, value, onChange, errors, path }) {
   const id = useId()
+  const { lang } = useContext(LangContext)
+  const other = lang === 'en' ? 'ar' : 'en'
   const v = value ?? { en: '', ar: '' }
+  const otherError = errors?.[`${path}.${other}`]
   return (
-    <fieldset>
-      <legend className="mb-1.5 text-[0.8rem] font-medium text-bone/90">{field.label}{field.required && <span className="ms-1 text-accent" aria-hidden="true">*</span>}</legend>
-      <div className="grid gap-3 md:grid-cols-2">
-        {['en', 'ar'].map((lang) => (
-          <div key={lang}>
-            <label htmlFor={`${id}-${lang}`} className="mb-1 block font-mono text-[0.65rem] uppercase tracking-widest text-faint">{lang === 'en' ? 'English' : 'Arabic'}</label>
-            <Input
-              id={`${id}-${lang}`}
-              area={field.area}
-              rows={field.rows}
-              value={v[lang]}
-              onChange={(x) => onChange({ ...v, [lang]: x })}
-              invalid={Boolean(errors?.[`${path}.${lang}`])}
-              dir={lang === 'ar' ? 'rtl' : 'ltr'}
-              lang={lang}
-            />
-            <Problem>{errors?.[`${path}.${lang}`]}</Problem>
-          </div>
-        ))}
+    <fieldset className="min-w-0">
+      <LocLegend field={field} other={other} otherEmpty={filled(v[lang]) && !filled(v[other])} />
+      <div key={lang} className="admin-swap">
+        <Input
+          id={`${id}-${lang}`}
+          aria-label={`${field.label} (${NAME[lang]})`}
+          area={field.area}
+          rows={field.rows}
+          value={v[lang]}
+          onChange={(x) => onChange({ ...v, [lang]: x })}
+          invalid={Boolean(errors?.[`${path}.${lang}`])}
+          dir={lang === 'ar' ? 'rtl' : 'ltr'}
+          lang={lang}
+        />
       </div>
+      <Problem>{errors?.[`${path}.${lang}`]}</Problem>
+      <Problem>{otherError && `${NAME[other]}: ${otherError}`}</Problem>
       <Hint>{field.hint}</Hint>
     </fieldset>
   )
@@ -56,24 +96,21 @@ function LocField({ field, value, onChange, errors, path }) {
 const toLines = (text) => text.split('\n').map((s) => s.trim()).filter(Boolean)
 
 // Lists are edited as one item per line; the raw text is kept locally so blank lines survive typing.
-function LinesInput({ id, value, onChange, dir, rows = 4 }) {
+function LinesInput({ id, value, onChange, dir, rows = 4, label }) {
   const [raw, setRaw] = useState(() => (value ?? []).join('\n'))
-  return <textarea id={id} rows={rows} dir={dir} className="admin-input" value={raw} onChange={(e) => { setRaw(e.target.value); onChange(toLines(e.target.value)) }} />
+  return <textarea id={id} rows={rows} dir={dir} aria-label={label} className="admin-input" value={raw} onChange={(e) => { setRaw(e.target.value); onChange(toLines(e.target.value)) }} />
 }
 
 function LocListField({ field, value, onChange }) {
   const id = useId()
+  const { lang } = useContext(LangContext)
+  const other = lang === 'en' ? 'ar' : 'en'
   const v = value ?? { en: [], ar: [] }
   return (
-    <fieldset>
-      <legend className="mb-1.5 text-[0.8rem] font-medium text-bone/90">{field.label}</legend>
-      <div className="grid gap-3 md:grid-cols-2">
-        {['en', 'ar'].map((lang) => (
-          <div key={lang}>
-            <label htmlFor={`${id}-${lang}`} className="mb-1 block font-mono text-[0.65rem] uppercase tracking-widest text-faint">{lang === 'en' ? 'English' : 'Arabic'}</label>
-            <LinesInput id={`${id}-${lang}`} value={v[lang]} onChange={(x) => onChange({ ...v, [lang]: x })} dir={lang === 'ar' ? 'rtl' : 'ltr'} />
-          </div>
-        ))}
+    <fieldset className="min-w-0">
+      <LocLegend field={field} other={other} otherEmpty={filled(v[lang]) && !filled(v[other])} />
+      <div key={lang} className="admin-swap">
+        <LinesInput id={`${id}-${lang}`} label={`${field.label} (${NAME[lang]})`} value={v[lang]} onChange={(x) => onChange({ ...v, [lang]: x })} dir={lang === 'ar' ? 'rtl' : 'ltr'} />
       </div>
       <Hint>{field.hint}</Hint>
     </fieldset>
@@ -94,7 +131,7 @@ function TagsField({ field, value, onChange }) {
       <Label htmlFor={id}>{field.label}</Label>
       <div className="admin-input flex flex-wrap items-center gap-1.5 !p-1.5 focus-within:border-accent">
         {tags.map((t) => (
-          <span key={t} className="flex items-center gap-1 border border-line-strong bg-ash px-2 py-1 font-mono text-xs">
+          <span key={t} className="flex items-center gap-1 rounded-md border border-line-strong bg-ash px-2 py-1 font-mono text-xs">
             {t}
             <button type="button" onClick={() => onChange(tags.filter((x) => x !== t))} aria-label={`Remove ${t}`} className="text-mute hover:text-danger"><X size={12} /></button>
           </span>
@@ -159,7 +196,7 @@ function ImageField({ field, value, onChange, error }) {
     <div>
       <Label htmlFor={id} required={field.required}>{field.label}</Label>
       <div className="flex gap-3">
-        <div className="grid size-20 shrink-0 place-items-center overflow-hidden border border-line bg-coal">
+        <div className="grid size-20 shrink-0 place-items-center overflow-hidden rounded-lg border border-line bg-coal">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {value ? <img src={value} alt="" className="size-full object-cover" /> : <ImagePlus size={18} className="text-faint" />}
         </div>
@@ -194,7 +231,7 @@ function GalleryField({ field, value, onChange, error }) {
       {images.length > 0 && (
         <ul className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
           {images.map((src, i) => (
-            <li key={src + i} className="group relative aspect-[4/3] overflow-hidden border border-line bg-coal">
+            <li key={src + i} className="group relative aspect-[4/3] overflow-hidden rounded-lg border border-line bg-coal">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={src} alt="" className="size-full object-cover" />
               <div className="absolute inset-x-0 bottom-0 flex justify-between bg-ink/85 p-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
@@ -240,19 +277,41 @@ function BoolField({ field, value, onChange }) {
 
 function ChecksField({ field, value, onChange }) {
   const picked = value ?? []
+  const addId = useId()
+  const [used, setUsed] = useState([]) // custom options already used by other documents
+  const [draft, setDraft] = useState('')
+  useEffect(() => {
+    if (!field.allowAdd) return
+    let alive = true
+    api('stats').then((s) => { if (alive) setUsed(s.filters ?? []) }).catch(() => {})
+    return () => { alive = false }
+  }, [field.allowAdd])
+  const options = [...new Set([...field.options, ...used, ...picked])]
+  const add = () => {
+    const key = filterKey(draft)
+    setDraft('')
+    if (key && !picked.includes(key)) onChange([...picked, key])
+  }
   return (
     <fieldset>
       <legend className="mb-1.5 text-[0.8rem] font-medium text-bone/90">{field.label}</legend>
       <div className="flex flex-wrap gap-2">
-        {field.options.map((o) => {
+        {options.map((o) => {
           const on = picked.includes(o)
           return (
-            <label key={o} className={`flex cursor-pointer items-center gap-2 border px-3 py-1.5 font-mono text-xs transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent ${on ? 'border-accent bg-accent/15 text-accent' : 'border-line text-mute hover:border-line-strong hover:text-bone'}`}>
+            <label key={o} className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 font-mono text-xs transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent ${on ? 'border-accent bg-accent/15 text-accent' : 'border-line text-mute hover:border-line-strong hover:text-bone'}`}>
               <input type="checkbox" checked={on} onChange={() => onChange(on ? picked.filter((x) => x !== o) : [...picked, o])} className="sr-only" />
               {o}
             </label>
           )
         })}
+        {field.allowAdd && (
+          <span className="flex items-center rounded-full border border-dashed border-line-strong ps-3 font-mono text-xs focus-within:border-accent">
+            <label htmlFor={addId} className="sr-only">Add a filter</label>
+            <input id={addId} value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }} placeholder="add filter" maxLength={30} className="w-24 bg-transparent py-1.5 outline-none placeholder:text-faint" />
+            <button type="button" onClick={add} disabled={!filterKey(draft)} aria-label="Add filter" className="admin-icon !rounded-full"><Plus size={13} /></button>
+          </span>
+        )}
       </div>
       <Hint>{field.hint}</Hint>
     </fieldset>
@@ -265,7 +324,7 @@ function Repeater({ field, value, onChange, errors, path }) {
     <div>
       <ul className="space-y-3">
         {rows.map((row, i) => (
-          <li key={i} className="border border-line bg-coal/40 p-4">
+          <li key={i} className="rounded-xl border border-line bg-coal/40 p-4">
             <div className="mb-3 flex items-center justify-between">
               <span className="font-mono text-[0.65rem] uppercase tracking-widest text-faint">{field.label} {i + 1}</span>
               <span className="flex">
