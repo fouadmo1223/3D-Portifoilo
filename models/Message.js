@@ -6,6 +6,8 @@ const MessageSchema = new mongoose.Schema({
   subject: { type: String, required: true, trim: true, maxlength: 200 },
   message: { type: String, required: true, trim: true, maxlength: 5000 },
   read: { type: Boolean, default: false, index: true },
+  // Shared with the classic portfolio's copy of this message (lib/mirror.js).
+  syncId: { type: String, index: true },
 }, { timestamps: true })
 
 export default mongoose.models.Message || mongoose.model('Message', MessageSchema)

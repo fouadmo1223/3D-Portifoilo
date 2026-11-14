@@ -3,6 +3,8 @@ import { handle, json, readJson, ApiError } from '@/lib/http'
 import { contactSchema } from '@/lib/validators'
 import { rateLimit, clientIp } from '@/lib/rate-limit'
 import Message from '@/models/Message'
+import { mirrorMessage } from '@/lib/mirror'
+import { randomUUID } from 'crypto'
 
 export const POST = handle(async (req) => {
   if (!rateLimit(`contact:${clientIp(req)}`, { limit: 5, windowMs: 60 * 60_000 })) {
@@ -12,6 +14,7 @@ export const POST = handle(async (req) => {
   // Honeypot filled in: pretend success so bots learn nothing.
   if (company) return json({ ok: true }, { status: 201 })
   await connectDB()
-  await Message.create(data)
+  // Also copied to the classic portfolio's inbox, so either dashboard shows every message.
+  await mirrorMessage('create', await Message.create({ ...data, syncId: randomUUID() }))
   return json({ ok: true }, { status: 201 })
 })

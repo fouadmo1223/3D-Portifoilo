@@ -3,7 +3,7 @@ import { handle, json, readJson, ApiError } from '@/lib/http'
 import { requireAdmin } from '@/lib/auth'
 import { getResource, refreshSite } from '@/lib/resources'
 import { toggleSchema } from '@/lib/validators'
-import { mirrorSave, mirrorDelete } from '@/lib/mirror'
+import { mirrorSave, mirrorDelete, mirrorMessage } from '@/lib/mirror'
 
 export const dynamic = 'force-dynamic'
 
@@ -53,6 +53,7 @@ export const PATCH = handle(async (req, { params }) => {
   if (!item) throw new ApiError(404, 'Not found.')
   if (resource !== 'messages') refreshSite()
   if ('featured' in patch) await mirrorSave(resource, model, item)
+  if (resource === 'messages' && 'read' in patch) await mirrorMessage('read', item)
   return json({ item })
 })
 
@@ -66,5 +67,6 @@ export const DELETE = handle(async (_req, { params }) => {
   await afterDelete?.(item)
   if (resource !== 'messages') refreshSite()
   await mirrorDelete(resource, item)
+  if (resource === 'messages') await mirrorMessage('delete', item)
   return json({ ok: true })
 })
