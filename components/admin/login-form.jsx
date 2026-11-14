@@ -27,7 +27,7 @@ export function LoginForm({ next }) {
   }
 
   return (
-    <form onSubmit={submit} className="w-full max-w-sm border border-line bg-coal/40 p-7">
+    <form onSubmit={submit} className="admin-rise admin-card w-full max-w-sm p-7">
       <p className="font-mono text-sm text-accent">&lt;FM /&gt; <span className="text-mute">admin</span></p>
       <h1 className="mt-5 text-2xl font-semibold tracking-tight">Sign in</h1>
       <p className="mt-1 text-sm text-mute">Manage the content on your portfolio.</p>

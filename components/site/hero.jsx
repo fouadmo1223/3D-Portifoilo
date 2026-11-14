@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef } from 'react'
-import { ArrowDownRight, ArrowUpRight } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, Rotate3d } from 'lucide-react'
 import { gsap, useGSAP, prefersReducedMotion } from '@/components/motion/gsap'
 import { onIntro } from '@/components/motion/intro'
 import { SplitText } from '@/components/motion/split-text'
@@ -42,6 +42,8 @@ export function Hero({ profile }) {
     <section id="top" ref={root} data-station="hero" className="relative z-10 flex min-h-[100svh] flex-col">
       {/* Phones: keep text legible over the centred 3D core */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-b from-ink/10 via-ink/55 to-ink/80 md:hidden" />
+      {/* Desktop: a soft floor of shadow so the intro copy stays readable over the landscape */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 hidden h-[46%] bg-gradient-to-t from-ink/85 via-ink/45 to-transparent md:block" />
       <div className="hero-inner wrap relative flex flex-1 flex-col pb-10 pt-28 md:pt-32">
         <div className="hero-fade t-label flex flex-wrap items-center gap-x-8 gap-y-2 text-mute">
           <span className="flex items-center gap-2">
@@ -50,6 +52,7 @@ export function Hero({ profile }) {
           </span>
           <span>{profile.location}</span>
           <span><LocalTime timezone={profile.timezone} locale={locale} /></span>
+          <span className="ms-auto hidden items-center gap-2 text-bone/80 md:flex"><Rotate3d className="size-3.5 text-accent" aria-hidden="true" />{t.hero.room}</span>
         </div>
 
         <h1 className="hero-name t-hero mt-auto pt-16">

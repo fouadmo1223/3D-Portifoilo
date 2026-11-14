@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic'
 export const GET = handle(async () => {
   await requireAdmin()
   await connectDB()
-  const [projects, published, featured, experience, skills, playground, messages, unread, latest] = await Promise.all([
+  const [projects, published, featured, experience, skills, playground, messages, unread, latest, filters] = await Promise.all([
     Project.countDocuments(),
     Project.countDocuments({ published: true }),
     Project.countDocuments({ featured: true, published: true }),
@@ -22,6 +22,7 @@ export const GET = handle(async () => {
     Message.countDocuments(),
     Message.countDocuments({ read: false }),
     Message.find().sort({ createdAt: -1 }).limit(5).select('name email subject read createdAt').lean(),
+    Project.distinct('filters'),
   ])
-  return json({ projects, published, featured, experience, skills, playground, messages, unread, latest })
+  return json({ projects, published, featured, experience, skills, playground, messages, unread, latest, filters: filters.filter(Boolean) })
 })

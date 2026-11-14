@@ -53,11 +53,7 @@ const skyFragment = /* glsl */ `
     col += mix(blue, purple, smoothstep(0.2, 0.5, el)) * a2 * 0.24;
     col *= smoothstep(0.0, 0.08, el) * (1.0 + uEnergy * 1.2);
 
-    vec2 uv = vec2(az * 40.0, el * 70.0);
-    float s = hash(floor(uv));
-    float star = step(0.975, s) * smoothstep(0.45, 0.0, length(fract(uv) - 0.5));
-    star *= 0.55 + 0.45 * sin(uTime * (1.0 + s * 3.0) + s * 80.0);
-    col += vec3(0.8, 0.9, 1.0) * star * 0.7 * smoothstep(-0.05, 0.2, el);
+    // Stars are drawn by the star dome in scene.jsx (real points stay round at any elevation).
 
     gl_FragColor = vec4(col, 1.0);
   }

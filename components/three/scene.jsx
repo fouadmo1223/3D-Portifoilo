@@ -2,35 +2,36 @@
 
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { PerformanceMonitor, Sparkles } from '@react-three/drei'
+import { PerformanceMonitor, Stars } from '@react-three/drei'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import * as THREE from 'three'
-import { CodeSymbol } from './code-symbol'
-import { CodeWindow } from './code-window'
-import { CodeTokens } from './code-tokens'
-import { GridFloor } from './grid-floor'
-import { DataStreams } from './data-streams'
+import { World } from './world'
 import { MagicDust } from './magic-dust'
 import { Sky } from './sky'
-import { SNIPPETS } from './snippets'
-import { sceneState, STATIONS } from './scene-state'
+import { sceneState, STATIONS, ORBIT_PIVOT } from './scene-state'
 
 const tmpPos = new THREE.Vector3()
 const tmpLook = new THREE.Vector3()
 const smooth = (t) => t * t * (3 - 2 * t)
 
-// Editor windows clustered around the core, kept clear of the hero copy.
-const WINDOWS = [
-  { snippet: SNIPPETS.react, position: [-0.9, 1.75, -2.6], rotation: [0, 0.14, 0.02], width: 2.0, delay: 0.4 },
-  { snippet: SNIPPETS.node, position: [1.9, 1.7, -3.0], rotation: [0, -0.36, -0.02], width: 2.0, delay: 1.2 },
-  { snippet: SNIPPETS.shader, position: [2.0, -1.5, -0.6], rotation: [0, -0.3, 0.02], width: 1.8, delay: 2 },
-]
 const BASE_FOV = 34
+
+// A star field that travels with the camera, so the sky never runs out on the way across the plain.
+function StarDome({ count }) {
+  const group = useRef(null)
+  useFrame((state) => { group.current?.position.copy(state.camera.position) })
+  return (
+    <group ref={group}>
+      <Stars radius={70} depth={40} count={count} factor={6} saturation={0.2} fade speed={sceneState.reducedMotion ? 0 : 0.7} />
+    </group>
+  )
+}
 
 function CameraRig({ narrow }) {
   const { camera } = useThree()
   const look = useRef(new THREE.Vector3(...STATIONS[0].look))
   const lastScroll = useRef(typeof window !== 'undefined' ? window.scrollY : 0)
+  const orbit = useRef(0)
 
   useFrame((_, dt) => {
     const delta = Math.min(dt, 0.05)
@@ -39,8 +40,8 @@ function CameraRig({ narrow }) {
     const st = THREE.MathUtils.clamp(s.station, 0, last)
     const i = Math.min(Math.floor(st), last - 1)
     const t = smooth(st - i)
-    const a = STATIONS[i]
-    const b = STATIONS[i + 1]
+    const a = narrow ? STATIONS[i].phone : STATIONS[i]
+    const b = narrow ? STATIONS[i + 1].phone : STATIONS[i + 1]
     const mirror = s.rtl ? -1 : 1
 
     tmpPos.set(
@@ -53,11 +54,17 @@ function CameraRig({ narrow }) {
       THREE.MathUtils.lerp(a.look[1], b.look[1], t),
       THREE.MathUtils.lerp(a.look[2], b.look[2], t),
     )
-    if (narrow) {
-      // Phones: centre the subject behind the text and step back.
-      const dir = tmpPos.clone().sub(tmpLook).normalize()
-      tmpLook.x *= 0.1
-      tmpPos.addScaledVector(dir, 4.5)
+    // Dragging in the hero swings the camera around the monolith.
+    orbit.current = THREE.MathUtils.damp(orbit.current, s.orbit * THREE.MathUtils.clamp(1 - st * 2.2, 0, 1), 5, delta)
+    if (Math.abs(orbit.current) > 0.0005) {
+      const cos = Math.cos(orbit.current)
+      const sin = Math.sin(orbit.current)
+      for (const v of [tmpPos, tmpLook]) {
+        const x = v.x - ORBIT_PIVOT[0] * mirror
+        const z = v.z - ORBIT_PIVOT[2]
+        v.x = ORBIT_PIVOT[0] * mirror + x * cos + z * sin
+        v.z = ORBIT_PIVOT[2] - x * sin + z * cos
+      }
     }
     // Scroll speed, smoothed: feeds the grid warp and a slight lens push.
     const y = window.scrollY
@@ -70,8 +77,8 @@ function CameraRig({ narrow }) {
     tmpPos.x += s.pointer.x * 0.45
     tmpPos.y += s.pointer.y * 0.3
     // Entrance: start further back and higher, then dolly in.
-    tmpPos.z += (1 - s.intro) * 1.2
-    tmpPos.y += (1 - s.intro) * 3.2
+    tmpPos.z += (1 - s.intro) * 9
+    tmpPos.y += (1 - s.intro) * 2.2
 
     const lambda = s.reducedMotion ? 50 : 2.1
     camera.position.x = THREE.MathUtils.damp(camera.position.x, tmpPos.x, lambda, delta)
@@ -108,7 +115,7 @@ function initialTier() {
 
 const downgrade = (tier) => (tier === 'high' ? 'mid' : 'low')
 
-export default function Scene({ onReady }) {
+export default function Scene({ onReady, shots }) {
   const [tier, setTier] = useState('mid')
   const [dpr, setDpr] = useState(1)
   const [narrow, setNarrow] = useState(false)
@@ -124,13 +131,11 @@ export default function Scene({ onReady }) {
     return () => mq.removeEventListener('change', update)
   }, [])
 
-  const windows = narrow ? WINDOWS.slice(0, 2) : WINDOWS
-
   return (
     <Canvas
       dpr={dpr}
       gl={{ antialias: tier !== 'low', powerPreference: 'high-performance', alpha: false, stencil: false }}
-      camera={{ fov: BASE_FOV, near: 0.1, far: 80, position: [0, 3, 16] }}
+      camera={{ fov: BASE_FOV, near: 0.1, far: 150, position: [-2, 4, 26] }}
       eventSource={typeof document !== 'undefined' ? document.body : undefined}
       eventPrefix="client"
       onCreated={({ gl }) => {
@@ -139,28 +144,23 @@ export default function Scene({ onReady }) {
         requestAnimationFrame(() => onReady?.())
       }}
     >
-      <color attach="background" args={['#05070c']} />
-      <fog attach="fog" args={['#05070c', 10, 42]} />
+      <color attach="background" args={['#070c18']} />
+      <fog attach="fog" args={['#070c18', 16, 82]} />
       <PerformanceMonitor
         onDecline={() => { setTier(downgrade); setDpr((d) => Math.max(0.85, d - 0.2)) }}
         flipflops={3}
         onFallback={() => { setTier('low'); setDpr(1) }}
       />
-      <ambientLight intensity={0.25} />
-      <directionalLight position={[5, 6, 4]} intensity={0.9} color="#bfe9ff" />
-      <pointLight position={[-6, 3, 3]} intensity={10} distance={18} color="#79c0ff" />
+      <ambientLight intensity={0.4} />
+      <hemisphereLight args={['#8fb0ff', '#0a1020', 0.9]} />
+      {/* moonlight from behind the landmarks, plus a faint fill from the viewer's side */}
+      <directionalLight position={[-12, 14, -26]} intensity={2.2} color="#9db9ff" />
+      <directionalLight position={[5, 6, 12]} intensity={0.3} color="#cfe6ff" />
       <CameraRig narrow={narrow} />
       {tier !== 'low' && <Sky />}
+      <StarDome count={tier === 'low' ? 1200 : 3200} />
 
-      <Suspense fallback={null}>
-        <CodeSymbol />
-      </Suspense>
-      {windows.map((w, i) => <CodeWindow key={w.snippet.title} {...w} channel={i === 0 ? 'focus' : null} />)}
-      <DataStreams sources={windows.map((w) => w.position)} />
-      <CodeTokens count={tier === 'high' ? 30 : tier === 'mid' ? 22 : 12} />
-      <Sparkles count={tier === 'low' ? 40 : 80} scale={[26, 12, 40]} position={[0, 3.5, 4]} size={2.2} speed={0.3} opacity={0.55} color="#9fd4ff" />
-      <CodeWindow snippet={SNIPPETS.terminal} position={[0, 0.4, 12]} width={2.9} active={[3.8, 5.5]} speed={30} channel="terminal" onlyNear />
-      <GridFloor />
+      <World shots={shots} rtl={sceneState.rtl} />
       <MagicDust trail={!narrow && tier !== 'low'} />
       <Effects tier={tier} />
     </Canvas>

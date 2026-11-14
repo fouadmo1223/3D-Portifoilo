@@ -15,7 +15,7 @@ const REDRAW = 1 / 12 // seconds between texture uploads
 // With a `channel` it also listens to the page: when a section publishes content on
 // sceneState[channel] (a hovered job, the contact form…) the window types that instead.
 // It only redraws while its camera station is near, so idle windows cost nothing.
-export function CodeWindow({ snippet, position, rotation = [0, 0, 0], width = 2.4, active = [0, 2.5], speed = 38, delay = 0, channel = null, onlyNear = false }) {
+export function CodeWindow({ snippet, position, rotation = [0, 0, 0], width = 2.4, active = [0, 2.5], speed = 38, delay = 0, channel = null, onlyNear = false, fixed = false }) {
   const group = useRef(null)
   const edge = useRef(null)
   const typed = useRef(-delay * speed)
@@ -82,9 +82,9 @@ export function CodeWindow({ snippet, position, rotation = [0, 0, 0], width = 2.
       // Hidden until the camera is on its way here, so it never blocks other views.
       if (onlyNear) group.current.visible = s.station > active[0] - 0.6
       const lit = hovered.current || Boolean(incoming)
-      group.current.scale.setScalar(THREE.MathUtils.damp(group.current.scale.x, lit ? 1.08 : 1, 6, dt))
+      group.current.scale.setScalar(THREE.MathUtils.damp(group.current.scale.x, lit && !fixed ? 1.08 : 1, 6, dt))
       // Lean toward the cursor so the windows feel like they are watching it.
-      const lean = s.reducedMotion ? 0 : 1
+      const lean = s.reducedMotion || fixed ? 0 : 1 // screens mounted on furniture stay put
       group.current.rotation.y = THREE.MathUtils.damp(group.current.rotation.y, rotation[1] + s.pointer.x * 0.16 * lean, 3, dt)
       group.current.rotation.x = THREE.MathUtils.damp(group.current.rotation.x, rotation[0] - s.pointer.y * 0.1 * lean, 3, dt)
       if (edge.current) edge.current.opacity = THREE.MathUtils.damp(edge.current.opacity, lit ? 0.9 : 0.28, 6, dt)
@@ -93,9 +93,10 @@ export function CodeWindow({ snippet, position, rotation = [0, 0, 0], width = 2.
 
   const height = (width * H) / W
   return (
-    <Float speed={sceneState.reducedMotion ? 0 : 1.4} rotationIntensity={0.25} floatIntensity={0.5} floatingRange={[-0.08, 0.08]}>
+    <Float speed={sceneState.reducedMotion || fixed ? 0 : 1.4} rotationIntensity={fixed ? 0 : 0.25} floatIntensity={fixed ? 0 : 0.5} floatingRange={[-0.08, 0.08]}>
       <group ref={group} position={position} rotation={rotation}>
         <mesh
+          {...(fixed ? { raycast: () => null } : {})}
           onPointerOver={(e) => { e.stopPropagation(); hovered.current = true }}
           onPointerOut={() => { hovered.current = false }}
         >
