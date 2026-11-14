@@ -1,7 +1,7 @@
 import connectDB from '@/lib/db'
 import { handle, json, readJson, ApiError } from '@/lib/http'
 import { requireAdmin } from '@/lib/auth'
-import { getResource, ensureUniqueSlug, refreshSite } from '@/lib/resources'
+import { getResource, refreshSite } from '@/lib/resources'
 import { toggleSchema } from '@/lib/validators'
 
 export const dynamic = 'force-dynamic'
@@ -25,13 +25,15 @@ export const GET = handle(async (_req, { params }) => {
 export const PUT = handle(async (req, { params }) => {
   await requireAdmin()
   const { resource, id } = await params
-  const { model, schema, readOnly } = getResource(resource)
+  const { model, schema, readOnly, prepare, afterUpdate } = getResource(resource)
   if (readOnly) throw new ApiError(405, 'This resource is read-only.')
   await connectDB()
   let data = schema.parse(await readJson(req))
-  if (resource === 'projects') data = await ensureUniqueSlug(data, validId(id))
+  if (prepare) data = await prepare(data, validId(id))
+  const before = afterUpdate ? await model.findById(validId(id)).lean() : null
   const item = await model.findByIdAndUpdate(validId(id), data, { new: true, runValidators: true }).lean()
   if (!item) throw new ApiError(404, 'Not found.')
+  await afterUpdate?.(before, item)
   refreshSite()
   return json({ item })
 })
@@ -54,10 +56,11 @@ export const PATCH = handle(async (req, { params }) => {
 export const DELETE = handle(async (_req, { params }) => {
   await requireAdmin()
   const { resource, id } = await params
-  const { model } = getResource(resource)
+  const { model, afterDelete } = getResource(resource)
   await connectDB()
   const item = await model.findByIdAndDelete(validId(id)).lean()
   if (!item) throw new ApiError(404, 'Not found.')
+  await afterDelete?.(item)
   if (resource !== 'messages') refreshSite()
   return json({ ok: true })
 })

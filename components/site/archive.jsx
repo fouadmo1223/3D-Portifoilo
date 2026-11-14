@@ -10,16 +10,6 @@ import { TransitionLink } from './page-transition'
 
 const PAGE = 12
 
-// Stack groups, in the order the original portfolio listed them.
-const STACKS = [
-  ['react', 'React'], ['html', 'HTML & CSS'], ['next', 'Next.js'], ['php', 'PHP'], ['node', 'Node.js'],
-  ['nest', 'NestJS'], ['zid', 'Zid'], ['astro', 'Astro'], ['reactnative', 'React Native'],
-]
-
-const KNOWN = new Set(STACKS.map(([key]) => key))
-// Label for a filter added in the admin: "vue-js" -> "Vue Js".
-const labelFor = (key) => key.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-
 function FilterRow({ filter, active, onSelect, layoutId }) {
   return (
     <button
@@ -36,8 +26,9 @@ function FilterRow({ filter, active, onSelect, layoutId }) {
 }
 
 // Every project, filtered by stack: a vertical filter list on desktop, a drawer on phones.
-// On desktop a preview image follows the cursor.
-export function Archive({ projects }) {
+// On desktop a preview image follows the cursor. `stacks` is the filter list managed in the
+// admin (Filters), already in display order; a filter with no projects is left out.
+export function Archive({ projects, stacks = [] }) {
   const { t } = useLocale()
   const root = useRef(null)
   const preview = useRef(null)
@@ -46,9 +37,9 @@ export function Archive({ projects }) {
   const [drawer, setDrawer] = useState(false)
 
   const filters = useMemo(() => [
-    ...[...STACKS, ...[...new Set(projects.flatMap((p) => p.filters))].filter((k) => !KNOWN.has(k)).sort().map((k) => [k, labelFor(k)])].map(([key, label]) => ({ key, label, count: projects.filter((p) => p.filters.includes(key)).length })).filter((f) => f.count > 0),
+    ...stacks.map(({ key, label }) => ({ key, label, count: projects.filter((p) => p.filters.includes(key)).length })).filter((f) => f.count > 0),
     { key: 'all', label: t.work.all, count: projects.length },
-  ], [projects, t.work.all])
+  ], [projects, stacks, t.work.all])
   const [filter, setFilter] = useState(() => filters[0].key)
   const current = filters.find((f) => f.key === filter) ?? filters[0]
   const filtered = current.key === 'all' ? projects : projects.filter((p) => p.filters.includes(current.key))

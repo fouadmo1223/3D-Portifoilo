@@ -8,7 +8,22 @@ export class RequestError extends Error {
   }
 }
 
-export async function api(path, { method = 'GET', body, form } = {}) {
+// Every save, delete, toggle and upload reports in here, so the shell can show a progress bar
+// for actions the same way it does for page changes.
+export const BUSY_EVENT = 'admin:busy'
+const announce = (delta) => { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(BUSY_EVENT, { detail: delta })) }
+
+export async function api(path, options = {}) {
+  const changing = (options.method ?? 'GET') !== 'GET'
+  if (changing) announce(1)
+  try {
+    return await request(path, options)
+  } finally {
+    if (changing) announce(-1)
+  }
+}
+
+async function request(path, { method = 'GET', body, form } = {}) {
   let res
   try {
     res = await fetch(`/api/admin/${path}`, {

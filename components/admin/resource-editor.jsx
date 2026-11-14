@@ -38,10 +38,11 @@ export function ResourceEditor({ resource, id }) {
     return { ...blankFrom(cfg.groups), ...item }
   }
   const remove = isNew ? null : async () => {
-    if (!window.confirm(`Delete "${cfg.title(doc) || 'this item'}"? This cannot be undone.`)) return
+    if (!window.confirm(`Delete "${cfg.title(doc) || 'this item'}"? ${cfg.deleteNote ? `${cfg.deleteNote} ` : ''}This cannot be undone.`)) return
     try {
       await api(`${resource}/${id}`, { method: 'DELETE' })
       router.push(`/admin/${resource}`)
+      return true
     } catch (err) { setError(err.message) }
   }
 

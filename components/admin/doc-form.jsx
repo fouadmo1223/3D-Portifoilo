@@ -14,6 +14,7 @@ export function DocForm({ groups, initial, save, remove, backHref, heading, save
   const [doc, setDoc] = useState(initial)
   const [saved, setSaved] = useState(initial)
   const [status, setStatus] = useState('idle') // idle | saving | saved
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
   const [lang, setLang] = useState('en')
@@ -29,8 +30,16 @@ export function DocForm({ groups, initial, save, remove, backHref, heading, save
     return () => window.removeEventListener('beforeunload', warn)
   }, [dirty])
 
+  const destroy = async () => {
+    setDeleting(true)
+    // `remove` resolves true once the item is gone and the page is changing; stay locked until then.
+    if (!(await remove())) setDeleting(false)
+  }
+  const locked = status === 'saving' || deleting
+
   const submit = async (e) => {
     e.preventDefault()
+    if (locked) return
     setStatus('saving')
     setError('')
     setFieldErrors({})
@@ -55,7 +64,7 @@ export function DocForm({ groups, initial, save, remove, backHref, heading, save
 
   return (
     <LangContext.Provider value={language}>
-    <form onSubmit={submit} noValidate className="mx-auto max-w-4xl pb-24">
+    <form onSubmit={submit} noValidate aria-busy={locked} className="mx-auto max-w-4xl pb-24">
       <div className="admin-rise mb-8 flex flex-wrap items-center justify-between gap-4">
         <div>
           {backHref && <Link href={backHref} className="mb-2 inline-flex items-center gap-1.5 text-xs text-mute hover:text-bone"><ArrowLeft size={13} />Back to list</Link>}
@@ -63,11 +72,11 @@ export function DocForm({ groups, initial, save, remove, backHref, heading, save
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {bilingual && <LangSwitch />}
-          {remove && <button type="button" onClick={remove} className="admin-btn hover:!border-danger hover:!text-danger"><Trash2 size={14} />Delete</button>}
+          {remove && <button type="button" onClick={destroy} disabled={locked} className="admin-btn hover:!border-danger hover:!text-danger">{deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}{deleting ? 'Deleting…' : 'Delete'}</button>}
         </div>
       </div>
 
-      <div className="space-y-6">
+      <div inert={locked} className={`space-y-6 transition-opacity duration-200 ${locked ? 'opacity-55' : ''}`}>
         {groups.map((group, i) => (
           <section key={group.title} style={{ '--i': i + 1 }} className="admin-rise admin-card overflow-hidden">
             <h2 className="flex items-center gap-2.5 border-b border-line bg-coal/50 px-5 py-3.5 font-mono text-[0.7rem] uppercase tracking-widest text-mute"><span className="size-1.5 rounded-full bg-accent" aria-hidden="true" />{group.title}<span className="ms-auto text-faint">{String(i + 1).padStart(2, '0')}</span></h2>
@@ -83,16 +92,19 @@ export function DocForm({ groups, initial, save, remove, backHref, heading, save
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-ink/90 backdrop-blur-md lg:start-60">
+        {locked && <span aria-hidden="true" className="admin-savebar-progress" />}
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-5 py-3 lg:px-10">
           <p className="min-w-0 truncate text-sm" role="status">
             {error ? <span className="text-danger">{error}</span>
+              : status === 'saving' ? <span className="inline-flex items-center gap-1.5 text-bone"><Loader2 size={14} className="animate-spin text-accent" />Saving your changes…</span>
+              : deleting ? <span className="inline-flex items-center gap-1.5 text-danger"><Loader2 size={14} className="animate-spin" />Deleting…</span>
               : status === 'saved' ? <span className="inline-flex items-center gap-1.5 text-accent"><Check size={14} />Saved. The site is updated.</span>
                 : dirty ? <span className="text-mute">Unsaved changes</span>
                   : <span className="text-faint">No changes</span>}
           </p>
           <div className="flex shrink-0 items-center gap-3">
             {bilingual && <LangSwitch className="max-sm:hidden" />}
-            <button type="submit" disabled={status === 'saving' || !dirty} className="admin-btn admin-btn-primary">
+            <button type="submit" disabled={locked || !dirty} className="admin-btn admin-btn-primary">
               {status === 'saving' && <Loader2 size={14} className="animate-spin" />}
               {status === 'saving' ? 'Saving…' : saveLabel}
             </button>

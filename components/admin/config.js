@@ -1,4 +1,4 @@
-import { PROJECT_FILTERS, SKILL_CATEGORIES } from '@/lib/validators'
+import { SKILL_CATEGORIES } from '@/lib/validators'
 
 // Field definitions drive every form. Types:
 //   loc (English + Arabic text; `area` for multi-line), locList (one item per line, both languages),
@@ -27,7 +27,7 @@ export const RESOURCES = {
         { name: 'gallery', type: 'gallery', label: 'Gallery' },
       ] },
       { title: 'Details', fields: [
-        { name: 'filters', type: 'checks', label: 'Stack filters', options: PROJECT_FILTERS, allowAdd: true, hint: 'Which filter groups list this project on the site. Add your own if the stack is not listed.' },
+        { name: 'filters', type: 'filters', label: 'Stack filters', hint: 'Which filter groups list this project on the site. Add a new one here, or remove one with its x button. Rename and reorder them on the Filters page.' },
         { name: 'technologies', type: 'tags', label: 'Technologies' },
         { name: 'category', type: 'text', label: 'Category', half: true },
         { name: 'year', type: 'number', label: 'Year', half: true, min: 2015, max: 2100 },
@@ -62,6 +62,21 @@ export const RESOURCES = {
       { title: 'Details', fields: [
         { name: 'technologies', type: 'tags', label: 'Technologies' },
         published,
+      ] },
+    ],
+  },
+  filters: {
+    label: 'Filters',
+    singular: 'filter',
+    title: (x) => x.label,
+    subtitle: (x) => `key: ${x.key}`,
+    toggles: ['published'],
+    deleteNote: 'It is also removed from every project that uses it.',
+    groups: [
+      { title: 'Filter', fields: [
+        { name: 'label', type: 'text', label: 'Name', required: true, half: true, hint: 'What visitors see, e.g. "n8n" or "React Native".' },
+        { name: 'key', type: 'text', label: 'Key', half: true, mono: true, hint: 'Short id stored on projects. Leave blank to make it from the name.' },
+        { ...published, hint: 'Hidden filters stay on their projects but are not listed on the site.' },
       ] },
     ],
   },
@@ -132,7 +147,7 @@ export function blankFrom(groups) {
   for (const f of groups.flatMap((g) => g.fields)) {
     if (f.type === 'loc') out[f.name] = { en: '', ar: '' }
     else if (f.type === 'locList') out[f.name] = { en: [], ar: [] }
-    else if (['gallery', 'tags', 'lines', 'repeater', 'checks'].includes(f.type)) out[f.name] = []
+    else if (['gallery', 'tags', 'lines', 'repeater', 'checks', 'filters'].includes(f.type)) out[f.name] = []
     else if (f.type === 'bool') out[f.name] = f.name === 'published' || f.name === 'available'
     else if (f.type === 'select') out[f.name] = f.options[0]
     else out[f.name] = ''

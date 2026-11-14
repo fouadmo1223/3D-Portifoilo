@@ -27,7 +27,7 @@ export default async function HomePage() {
         <About profile={site.profile} />
         <Expertise skills={site.skills} />
         <WorkReel projects={site.reel} />
-        <Archive projects={site.projects} />
+        <Archive projects={site.projects} stacks={site.filters} />
         <Experience items={site.experience} />
         <Contact profile={site.profile} />
       </main>

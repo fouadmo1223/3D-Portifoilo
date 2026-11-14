@@ -275,23 +275,93 @@ function BoolField({ field, value, onChange }) {
   )
 }
 
-function ChecksField({ field, value, onChange }) {
+const chipClass = (on) => `flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 font-mono text-xs transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent ${on ? 'border-accent bg-accent/15 text-accent' : 'border-line text-mute hover:border-line-strong hover:text-bone'}`
+
+// Stack filters for a project. The list itself lives in the Filters collection, so adding or
+// removing one here changes it for every project and for the site.
+function FiltersField({ field, value, onChange }) {
   const picked = value ?? []
   const addId = useId()
-  const [used, setUsed] = useState([]) // custom options already used by other documents
+  const [list, setList] = useState(null) // [{ _id, key, label }]
   const [draft, setDraft] = useState('')
+  const [busy, setBusy] = useState('') // 'add' or the id being removed
+  const [error, setError] = useState('')
   useEffect(() => {
-    if (!field.allowAdd) return
     let alive = true
-    api('stats').then((s) => { if (alive) setUsed(s.filters ?? []) }).catch(() => {})
+    api('filters?limit=200').then((d) => { if (alive) setList(d.items) }).catch((err) => { if (alive) { setList([]); setError(err.message) } })
     return () => { alive = false }
-  }, [field.allowAdd])
-  const options = [...new Set([...field.options, ...used, ...picked])]
-  const add = () => {
-    const key = filterKey(draft)
-    setDraft('')
-    if (key && !picked.includes(key)) onChange([...picked, key])
+  }, [])
+
+  const add = async () => {
+    const label = draft.trim()
+    const key = filterKey(label)
+    if (!key || busy) return
+    setError('')
+    const existing = list?.find((f) => f.key === key)
+    if (existing) { // already in the list: just tick it
+      setDraft('')
+      if (!picked.includes(key)) onChange([...picked, key])
+      return
+    }
+    setBusy('add')
+    try {
+      const { item } = await api('filters', { method: 'POST', body: { label } })
+      setList((l) => [...(l ?? []), item])
+      onChange([...picked, item.key])
+      setDraft('')
+    } catch (err) { setError(err.message) } finally { setBusy('') }
   }
+
+  const remove = async (f) => {
+    if (busy || !window.confirm(`Remove the filter "${f.label}" from the site? It is also taken off every project that uses it.`)) return
+    setError('')
+    setBusy(f._id)
+    try {
+      await api(`filters/${f._id}`, { method: 'DELETE' })
+      setList((l) => l.filter((x) => x._id !== f._id))
+      if (picked.includes(f.key)) onChange(picked.filter((k) => k !== f.key))
+    } catch (err) { setError(err.message) } finally { setBusy('') }
+  }
+
+  return (
+    <fieldset aria-busy={!list || Boolean(busy)}>
+      <legend className="mb-1.5 text-[0.8rem] font-medium text-bone/90">{field.label}</legend>
+      <div className="flex flex-wrap gap-2">
+        {!list && [16, 14, 20, 12, 16].map((w, i) => <span key={i} aria-hidden="true" className="admin-skeleton block h-[30px] !rounded-full" style={{ width: `${w * 4}px` }} />)}
+        {list?.map((f) => {
+          const on = picked.includes(f.key)
+          const removing = busy === f._id
+          return (
+            <span key={f._id} className={`group/chip relative flex items-center transition-opacity ${removing ? 'opacity-50' : ''}`}>
+              <label title={f.key} className={`${chipClass(on)} pe-7`}>
+                <input type="checkbox" checked={on} disabled={removing} onChange={() => onChange(on ? picked.filter((x) => x !== f.key) : [...picked, f.key])} className="sr-only" />
+                {f.label}
+              </label>
+              <button type="button" onClick={() => remove(f)} disabled={Boolean(busy)} aria-label={`Remove the filter ${f.label}`} title="Remove this filter everywhere" className="absolute end-1.5 grid size-4 place-items-center rounded-full text-faint transition-colors hover:bg-danger/20 hover:text-danger focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed">
+                {removing ? <Loader2 size={11} className="animate-spin" /> : <X size={11} />}
+              </button>
+            </span>
+          )
+        })}
+        {list && (
+          <span className="flex items-center rounded-full border border-dashed border-line-strong ps-3 font-mono text-xs focus-within:border-accent">
+            <label htmlFor={addId} className="sr-only">Add a filter</label>
+            <input id={addId} value={draft} disabled={busy === 'add'} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }} placeholder="add filter" maxLength={30} className="w-24 bg-transparent py-1.5 outline-none placeholder:text-faint" />
+            <button type="button" onClick={add} disabled={!filterKey(draft) || Boolean(busy)} aria-label="Add filter" className="admin-icon !rounded-full">
+              {busy === 'add' ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+            </button>
+          </span>
+        )}
+      </div>
+      <Problem>{error}</Problem>
+      <Hint>{field.hint}</Hint>
+    </fieldset>
+  )
+}
+
+function ChecksField({ field, value, onChange }) {
+  const picked = value ?? []
+  const options = [...new Set([...field.options, ...picked])]
   return (
     <fieldset>
       <legend className="mb-1.5 text-[0.8rem] font-medium text-bone/90">{field.label}</legend>
@@ -299,19 +369,12 @@ function ChecksField({ field, value, onChange }) {
         {options.map((o) => {
           const on = picked.includes(o)
           return (
-            <label key={o} className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 font-mono text-xs transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent ${on ? 'border-accent bg-accent/15 text-accent' : 'border-line text-mute hover:border-line-strong hover:text-bone'}`}>
+            <label key={o} className={chipClass(on)}>
               <input type="checkbox" checked={on} onChange={() => onChange(on ? picked.filter((x) => x !== o) : [...picked, o])} className="sr-only" />
               {o}
             </label>
           )
         })}
-        {field.allowAdd && (
-          <span className="flex items-center rounded-full border border-dashed border-line-strong ps-3 font-mono text-xs focus-within:border-accent">
-            <label htmlFor={addId} className="sr-only">Add a filter</label>
-            <input id={addId} value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }} placeholder="add filter" maxLength={30} className="w-24 bg-transparent py-1.5 outline-none placeholder:text-faint" />
-            <button type="button" onClick={add} disabled={!filterKey(draft)} aria-label="Add filter" className="admin-icon !rounded-full"><Plus size={13} /></button>
-          </span>
-        )}
       </div>
       <Hint>{field.hint}</Hint>
     </fieldset>
@@ -383,6 +446,7 @@ export function Field({ field, value, onChange, errors, path }) {
     case 'image': return <ImageField field={field} value={value} onChange={onChange} error={error} />
     case 'gallery': return <GalleryField field={field} value={value} onChange={onChange} error={error} />
     case 'checks': return <ChecksField field={field} value={value} onChange={onChange} />
+    case 'filters': return <FiltersField field={field} value={value} onChange={onChange} />
     case 'bool': return <BoolField field={field} value={value} onChange={onChange} />
     case 'repeater': return <Repeater field={field} value={value} onChange={onChange} errors={errors} path={path} />
     default: return <SimpleField field={field} value={value} onChange={onChange} error={error} />

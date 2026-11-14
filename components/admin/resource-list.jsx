@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Eye, EyeOff, ImageOff, Pencil, Plus, Search, Star, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Eye, EyeOff, ImageOff, Loader2, Pencil, Plus, Search, Star, Trash2 } from 'lucide-react'
 import { api } from './api'
 import { RESOURCES } from './config'
 import { ListSkeleton, Skeleton } from './skeleton'
@@ -16,16 +16,20 @@ export function ResourceList({ resource }) {
   const [items, setItems] = useState(null)
   const [query, setQuery] = useState('')
   const [error, setError] = useState('')
-  const [busy, setBusy] = useState(null) // id being changed
+  const [busy, setBusy] = useState(null) // { id, kind } of the action in flight
+  const [fetching, setFetching] = useState(false) // a search or reload is running
   const request = useRef(0)
 
   const load = useCallback(async (q) => {
     const mine = ++request.current
+    setFetching(true)
     try {
       const data = await api(`${resource}?limit=200${q ? `&q=${encodeURIComponent(q)}` : ''}`)
       if (mine === request.current) { setItems(data.items); setError('') }
     } catch (err) {
       if (mine === request.current) setError(err.message)
+    } finally {
+      if (mine === request.current) setFetching(false)
     }
   }, [resource])
 
@@ -34,18 +38,18 @@ export function ResourceList({ resource }) {
     return () => clearTimeout(t)
   }, [query, load])
 
-  const act = async (id, fn) => {
-    setBusy(id)
+  const act = async (id, kind, fn) => {
+    setBusy({ id, kind })
     setError('')
     try { await fn() } catch (err) { setError(err.message); load(query.trim()) } finally { setBusy(null) }
   }
 
-  const toggle = (item, key) => act(item._id, async () => {
+  const toggle = (item, key) => act(item._id, key, async () => {
     setItems((list) => list.map((x) => (x._id === item._id ? { ...x, [key]: !x[key] } : x)))
     await api(`${resource}/${item._id}`, { method: 'PATCH', body: { [key]: !item[key] } })
   })
 
-  const reorder = (index, by) => act(items[index]._id, async () => {
+  const reorder = (index, by) => act(items[index]._id, by < 0 ? 'earlier' : 'later', async () => {
     const next = [...items]
     const [moved] = next.splice(index, 1)
     next.splice(index + by, 0, moved)
@@ -54,8 +58,8 @@ export function ResourceList({ resource }) {
   })
 
   const remove = (item) => {
-    if (!window.confirm(`Delete "${cfg.title(item)}"? This cannot be undone.`)) return
-    act(item._id, async () => {
+    if (!window.confirm(`Delete "${cfg.title(item)}"? ${cfg.deleteNote ? `${cfg.deleteNote} ` : ''}This cannot be undone.`)) return
+    act(item._id, 'delete', async () => {
       await api(`${resource}/${item._id}`, { method: 'DELETE' })
       setItems((list) => list.filter((x) => x._id !== item._id))
     })
@@ -65,25 +69,26 @@ export function ResourceList({ resource }) {
   const Earlier = grid ? ArrowLeft : ArrowUp
   const Later = grid ? ArrowRight : ArrowDown
 
-  // The buttons every card shares.
-  const order = (i, waiting) => (
+  const spin = (size) => <Loader2 size={size} className="animate-spin text-accent" />
+  // The buttons every card shares. `doing` is the action running on this card, if any.
+  const order = (i, waiting, doing) => (
     <span className={`flex ${grid ? '' : 'flex-col'}`}>
-      <button type="button" disabled={searching || i === 0 || waiting} onClick={() => reorder(i, -1)} aria-label="Move earlier" title={searching ? 'Clear the search to reorder' : 'Move earlier'} className={`admin-icon ${grid ? '' : '!p-0.5'}`}><Earlier size={grid ? 15 : 13} /></button>
-      <button type="button" disabled={searching || i === items.length - 1 || waiting} onClick={() => reorder(i, 1)} aria-label="Move later" title={searching ? 'Clear the search to reorder' : 'Move later'} className={`admin-icon ${grid ? '' : '!p-0.5'}`}><Later size={grid ? 15 : 13} /></button>
+      <button type="button" disabled={searching || i === 0 || waiting} onClick={() => reorder(i, -1)} aria-label="Move earlier" title={searching ? 'Clear the search to reorder' : 'Move earlier'} className={`admin-icon ${grid ? '' : '!p-0.5'} ${doing === 'earlier' ? 'admin-icon-busy' : ''}`}>{doing === 'earlier' ? spin(grid ? 15 : 13) : <Earlier size={grid ? 15 : 13} />}</button>
+      <button type="button" disabled={searching || i === items.length - 1 || waiting} onClick={() => reorder(i, 1)} aria-label="Move later" title={searching ? 'Clear the search to reorder' : 'Move later'} className={`admin-icon ${grid ? '' : '!p-0.5'} ${doing === 'later' ? 'admin-icon-busy' : ''}`}>{doing === 'later' ? spin(grid ? 15 : 13) : <Later size={grid ? 15 : 13} />}</button>
     </span>
   )
-  const actions = (item, waiting) => (
+  const actions = (item, waiting, doing) => (
     <span className="flex shrink-0 items-center">
       {cfg.toggles.includes('featured') && (
-        <button type="button" disabled={waiting} onClick={() => toggle(item, 'featured')} aria-pressed={Boolean(item.featured)} aria-label={item.featured ? 'Remove from featured' : 'Mark as featured'} title={item.featured ? 'Featured' : 'Not featured'} className={`admin-icon ${item.featured ? '!text-syn-orange' : ''}`}>
-          <Star size={15} fill={item.featured ? 'currentColor' : 'none'} />
+        <button type="button" disabled={waiting} onClick={() => toggle(item, 'featured')} aria-pressed={Boolean(item.featured)} aria-label={item.featured ? 'Remove from featured' : 'Mark as featured'} title={item.featured ? 'Featured' : 'Not featured'} className={`admin-icon ${item.featured ? '!text-syn-orange' : ''} ${doing === 'featured' ? 'admin-icon-busy' : ''}`}>
+          {doing === 'featured' ? spin(15) : <Star size={15} fill={item.featured ? 'currentColor' : 'none'} />}
         </button>
       )}
-      <button type="button" disabled={waiting} onClick={() => toggle(item, 'published')} aria-pressed={Boolean(item.published)} aria-label={item.published ? 'Unpublish' : 'Publish'} title={item.published ? 'Published' : 'Hidden'} className={`admin-icon ${item.published ? '!text-accent' : ''}`}>
-        {item.published ? <Eye size={15} /> : <EyeOff size={15} />}
+      <button type="button" disabled={waiting} onClick={() => toggle(item, 'published')} aria-pressed={Boolean(item.published)} aria-label={item.published ? 'Unpublish' : 'Publish'} title={item.published ? 'Published' : 'Hidden'} className={`admin-icon ${item.published ? '!text-accent' : ''} ${doing === 'published' ? 'admin-icon-busy' : ''}`}>
+        {doing === 'published' ? spin(15) : item.published ? <Eye size={15} /> : <EyeOff size={15} />}
       </button>
       <Link href={`/admin/${resource}/${item._id}`} aria-label={`Edit ${cfg.title(item)}`} title="Edit" className="admin-icon"><Pencil size={15} /></Link>
-      <button type="button" disabled={waiting} onClick={() => remove(item)} aria-label={`Delete ${cfg.title(item)}`} title="Delete" className="admin-icon hover:!text-danger"><Trash2 size={15} /></button>
+      <button type="button" disabled={waiting} onClick={() => remove(item)} aria-label={`Delete ${cfg.title(item)}`} title="Delete" className={`admin-icon hover:!text-danger ${doing === 'delete' ? 'admin-icon-busy' : ''}`}>{doing === 'delete' ? <Loader2 size={15} className="animate-spin text-danger" /> : <Trash2 size={15} />}</button>
     </span>
   )
 
@@ -96,7 +101,7 @@ export function ResourceList({ resource }) {
         </div>
         <div className="flex flex-1 flex-wrap items-center justify-end gap-3">
           <div className="relative w-full sm:w-72">
-            <Search size={14} className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-faint" />
+            {fetching && items ? <Loader2 size={14} className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 animate-spin text-accent" /> : <Search size={14} className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-faint" />}
             <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${cfg.label.toLowerCase()}`} aria-label={`Search ${cfg.label.toLowerCase()}`} className="admin-input !ps-9" />
           </div>
           <Link href={`/admin/${resource}/new`} className="admin-btn admin-btn-primary !py-2.5"><Plus size={14} />New {cfg.singular}</Link>
@@ -113,13 +118,14 @@ export function ResourceList({ resource }) {
           {!searching && <Link href={`/admin/${resource}/new`} className="admin-btn admin-btn-primary mt-5"><Plus size={14} />Add the first {cfg.singular}</Link>}
         </div>
       ) : grid ? (
-        <ul className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        <ul aria-busy={fetching} className={`grid gap-5 transition-opacity duration-200 sm:grid-cols-2 xl:grid-cols-3 ${fetching ? 'opacity-60' : ''}`}>
           {items.map((item, i) => {
             const image = cfg.image?.(item)
-            const waiting = busy === item._id
+            const waiting = busy?.id === item._id
+            const doing = waiting ? busy.kind : null
             const hidden = item.published === false
             return (
-              <li key={item._id} style={{ '--i': Math.min(i, 11) + 1 }} className="admin-rise admin-card admin-card-hover group flex flex-col overflow-hidden">
+              <li key={item._id} style={{ '--i': Math.min(i, 11) + 1 }} className={`admin-rise admin-card admin-card-hover group flex flex-col overflow-hidden ${doing === 'delete' ? 'admin-removing' : waiting ? 'admin-working' : ''}`}>
                 <Link href={`/admin/${resource}/${item._id}`} tabIndex={-1} aria-hidden="true" className="relative block aspect-[16/10] overflow-hidden bg-coal">
                   {image
                     // eslint-disable-next-line @next/next/no-img-element
@@ -138,8 +144,8 @@ export function ResourceList({ resource }) {
                     <span className="mt-0.5 block truncate text-xs text-mute">{cfg.subtitle(item)}</span>
                   </Link>
                   <div className="mt-3 flex items-center justify-between border-t border-line pt-1.5">
-                    {order(i, waiting)}
-                    {actions(item, waiting)}
+                    {order(i, waiting, doing)}
+                    {actions(item, waiting, doing)}
                   </div>
                 </div>
               </li>
@@ -147,13 +153,14 @@ export function ResourceList({ resource }) {
           })}
         </ul>
       ) : (
-        <ul className="grid gap-3 lg:grid-cols-2">
+        <ul aria-busy={fetching} className={`grid gap-3 transition-opacity duration-200 lg:grid-cols-2 ${fetching ? 'opacity-60' : ''}`}>
           {items.map((item, i) => {
             const image = cfg.image?.(item)
-            const waiting = busy === item._id
+            const waiting = busy?.id === item._id
+            const doing = waiting ? busy.kind : null
             return (
-              <li key={item._id} style={{ '--i': Math.min(i, 14) + 1 }} className={`admin-rise admin-card admin-card-hover group flex items-center gap-3 px-3 py-3 ${item.published === false ? 'admin-dim' : ''}`}>
-                {order(i, waiting)}
+              <li key={item._id} style={{ '--i': Math.min(i, 14) + 1 }} className={`admin-rise admin-card admin-card-hover group flex items-center gap-3 px-3 py-3 ${item.published === false ? 'admin-dim' : ''} ${doing === 'delete' ? 'admin-removing' : waiting ? 'admin-working' : ''}`}>
+                {order(i, waiting, doing)}
                 <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-lg border border-line bg-coal font-mono text-xs text-mute">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   {image ? <img src={thumb(image, 96)} alt="" loading="lazy" className="size-full object-contain p-1.5" /> : (cfg.title(item) || '?').slice(0, 2).toUpperCase()}
@@ -162,7 +169,7 @@ export function ResourceList({ resource }) {
                   <span className="block truncate text-sm font-medium text-bone transition-colors group-hover:text-accent">{cfg.title(item) || 'Untitled'}</span>
                   <span className="block truncate text-xs text-mute">{cfg.subtitle(item)}</span>
                 </Link>
-                {actions(item, waiting)}
+                {actions(item, waiting, doing)}
               </li>
             )
           })}
