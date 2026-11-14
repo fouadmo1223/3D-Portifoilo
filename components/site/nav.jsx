@@ -9,6 +9,8 @@ import { useLocale } from './locale-provider'
 import { TransitionLink, usePageTransition } from './page-transition'
 
 const SECTIONS = ['work', 'about', 'expertise', 'experience', 'contact']
+// The other, non-3D version of the portfolio.
+const CLASSIC_URL = 'https://potifolio-eta-six.vercel.app/'
 
 export function Nav() {
   const { t, locale, setLocale, pending } = useLocale()
@@ -94,6 +96,15 @@ export function Nav() {
           </nav>
 
           <div className="flex items-center gap-5">
+            <a
+              href={CLASSIC_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="t-label group hidden items-center gap-1.5 whitespace-nowrap border border-accent/50 px-3 py-2 text-accent transition-colors hover:bg-accent hover:text-ink md:inline-flex"
+            >
+              {t.nav.classic}
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true" className="transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 rtl:-scale-x-100"><path d="M3 9 9 3M4 3h5v5" /></svg>
+            </a>
             <button
               type="button"
               onClick={() => setLocale(locale === 'ar' ? 'en' : 'ar')}
@@ -126,6 +137,12 @@ export function Nav() {
               </a>
             </li>
           ))}
+          <li className="mask w-full border-b border-line">
+            <a href={CLASSIC_URL} target="_blank" rel="noopener noreferrer" className="menu-item flex items-baseline justify-between py-3 text-accent">
+              <span className="t-display">{t.nav.classic}</span>
+              <span className="t-label">↗</span>
+            </a>
+          </li>
         </ul>
       </div>
     </>

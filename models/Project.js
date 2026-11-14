@@ -19,6 +19,8 @@ const ProjectSchema = new mongoose.Schema({
   featured: { type: Boolean, default: false, index: true },
   published: { type: Boolean, default: true, index: true },
   order: { type: Number, default: 0 },
+  // Shared with the classic portfolio's copy of this record (lib/mirror.js).
+  syncId: { type: String, index: true },
 }, { timestamps: true })
 
 ProjectSchema.index({ published: 1, featured: -1, order: 1 })

@@ -13,6 +13,8 @@ const ExperienceSchema = new mongoose.Schema({
   technologies: { type: [{ type: String, trim: true, maxlength: 60 }], default: [] },
   published: { type: Boolean, default: true },
   order: { type: Number, default: 0 },
+  // Shared with the classic portfolio's copy of this record (lib/mirror.js).
+  syncId: { type: String, index: true },
 }, { timestamps: true })
 
 export default mongoose.models.Experience || mongoose.model('Experience', ExperienceSchema)

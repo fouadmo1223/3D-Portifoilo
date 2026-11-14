@@ -10,6 +10,8 @@ const SkillSchema = new mongoose.Schema({
   proficiency: { type: Number, min: 0, max: 100 },
   published: { type: Boolean, default: true },
   order: { type: Number, default: 0 },
+  // Shared with the classic portfolio's copy of this record (lib/mirror.js).
+  syncId: { type: String, index: true },
 }, { timestamps: true })
 
 export default mongoose.models.Skill || mongoose.model('Skill', SkillSchema)

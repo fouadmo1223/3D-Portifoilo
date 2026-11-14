@@ -2,6 +2,7 @@ import connectDB from '@/lib/db'
 import { handle, json, readJson, ApiError } from '@/lib/http'
 import { requireAdmin } from '@/lib/auth'
 import { getResource, refreshSite, escapeRegex } from '@/lib/resources'
+import { mirrorSave } from '@/lib/mirror'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,5 +40,6 @@ export const POST = handle(async (req, { params }) => {
   }
   const item = await model.create(data)
   refreshSite()
+  await mirrorSave(name, model, item)
   return json({ item }, { status: 201 })
 })
